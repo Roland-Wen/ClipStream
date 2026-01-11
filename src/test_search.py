@@ -86,8 +86,8 @@ def run_search(config, filename, query_text, top_k=5):
         
         scene_id = scene_ids[idx]
         scene_info = meta_dict.get(scene_id)
-        start_time = scene_info['start']
-        end_time = scene_info['end']
+        start_time = scene_info['start_time']
+        end_time = scene_info['end_time']
         timestamp = f"{int(start_time//60)}:{int(start_time%60)} - {int(end_time//60)}:{int(end_time%60)}"
         
         print(f"   Confidence: {score*100:.2f}% | Time: {timestamp} | ID: {scene_id}")
