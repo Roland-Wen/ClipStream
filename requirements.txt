@@ -7,3 +7,4 @@ transformers>=4.30.0
 pillow>=9.0.0
 ftfy
 regex
+pinecone
