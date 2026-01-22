@@ -1,14 +1,16 @@
 import logging
 import time
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
-from schemas import SearchRequest, SearchResponse, VideoMatch
+from schemas import SearchRequest, SearchResponse
 from database import PineconeClient, map_metadata_to_match
+from encoder import CLIPTextEncoder
 
-# --- CONFIGURATION (W4D1) ---
+# --- CONFIGURATION  ---
 
 class Settings(BaseSettings):
     """
@@ -35,6 +37,26 @@ def get_settings():
     """Returns a cached instance of the settings."""
     return Settings()
 
+# --- LIFESPAN (Startup/Shutdown) ---
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Handles startup and shutdown events.
+    W4D4: Initializes and warms up the CLIP model on startup.
+    """
+    settings = get_settings()
+    logger.info("--- SERVER STARTING ---")
+    
+    # 1. Initialize & Warm up Encoder
+    encoder = CLIPTextEncoder.get_instance(settings.MODEL_NAME)
+    encoder.warm_up()
+    
+    yield # Server is now running and handling requests
+    
+    logger.info("--- SERVER SHUTTING DOWN ---")
+
+
 # --- INITIALIZATION ---
 
 # Setup basic logging
@@ -43,10 +65,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=get_settings().APP_NAME,
-    version=get_settings().VERSION
+    version=get_settings().VERSION,
+    lifespan=lifespan
 )
 
-# --- DATABASE INJECTION ---
+# --- DEPENDENCIES ---
 
 def get_db():
     """Dependency that provides the Pinecone index instance."""
@@ -55,6 +78,11 @@ def get_db():
         return PineconeClient(settings.PINECONE_API_KEY, settings.PINECONE_INDEX_NAME)
     except ConnectionError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+def get_encoder():
+    """Dependency to get the already-initialized encoder."""
+    settings = get_settings()
+    return CLIPTextEncoder.get_instance(settings.MODEL_NAME)
 
 # --- ENDPOINTS ---
 
@@ -70,20 +98,19 @@ async def health_check(db=Depends(get_db)):
 @app.post("/search", response_model=SearchResponse)
 async def search(
     request: SearchRequest, 
-    settings=Depends(get_settings), 
-    db=Depends(get_db)
+    db=Depends(get_db),
+    encoder: CLIPTextEncoder = Depends(get_encoder)
 ):
     """
-    Search endpoint. Currently using a dummy vector for testing DB retrieval.
+    Search endpoint: Converts text to vector and queries Pinecone.
     """
     start_time = time.time()
     
-    # TODO: Placeholder: In W4D4 we will replace this with real CLIP embedding
-    dummy_vector = [0.1] * 512 
-
     try:
-        # 1. Query Pinecone
-        # We also pass filters if they exist in the request
+        # 1. Generate real embedding from user query
+        query_vector = encoder.encode_text(request.query)
+
+        # 2. Query Pinecone with metadata filters
         filter_dict = {}
         if request.category_filter:
             filter_dict["category"] = {"$eq": request.category_filter}
@@ -91,13 +118,13 @@ async def search(
             filter_dict["year"] = {"$eq": request.year_filter}
 
         query_response = db.query(
-            vector=dummy_vector,
+            vector=query_vector,
             top_k=request.top_k,
             include_metadata=True,
             filter=filter_dict if filter_dict else None
         )
 
-        # 2. Map Results
+        # 3. Map Results
         results = [map_metadata_to_match(m) for m in query_response.get("matches", [])]
 
         return SearchResponse(
