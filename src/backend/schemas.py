@@ -5,15 +5,15 @@ from typing import List, Optional
 
 class SearchRequest(BaseModel):
     """
-    Schema for incoming search queries.
+    Schema for incoming search queries with multi-select filter support.
     Validation logic ensures queries are safe and meaningful.
     """
     query: str = Field(..., min_length=3, max_length=100, description="Natural language search query")
     top_k: int = Field(default=5, ge=1, le=20, description="Number of results to return")
     
-    # Optional Filters (for Hybrid Search later)
-    category_filter: Optional[str] = Field(default=None, description="Filter by category (e.g., 'anime')")
-    year_filter: Optional[int] = Field(default=None, ge=1900, le=2100, description="Filter by release year")
+    # Optional Filters support for multiple categories and years
+    categories: Optional[List[str]] = Field(default=None, description="Multi-select categories")
+    years: Optional[List[int]] = Field(default=None, description="Multi-select years")
 
     @field_validator('query')
     def query_must_not_be_blank(cls, v):

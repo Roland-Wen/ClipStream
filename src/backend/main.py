@@ -1,9 +1,10 @@
 import logging
 import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from typing import Optional, Dict, Any
 
 
 from schemas import SearchRequest, SearchResponse
@@ -20,11 +21,14 @@ class Settings(BaseSettings):
     # Project Info
     APP_NAME: str = "ClipStream API"
     DEBUG_MODE: bool = True
-    VERSION: str = "0.1.0"
+    VERSION: str = "0.2.0"
 
     # Infrastructure (Keys will be loaded from .env)
     PINECONE_API_KEY: str = ""
     PINECONE_INDEX_NAME: str = "clip-stream"
+
+    # NEW: Default Search Settings
+    MIN_SCORE_THRESHOLD: float = 0.26 # Anything below this is likely noise
     
     # Model Config
     MODEL_NAME: str = "openai/clip-vit-base-patch32"
@@ -38,6 +42,26 @@ def get_settings():
     return Settings()
 
 # --- LIFESPAN (Startup/Shutdown) ---
+
+# --- UTILS: PINECONE FILTER BUILDER ---
+
+def build_pinecone_filters(request: SearchRequest) -> Optional[Dict[str, Any]]:
+    """
+    Constructs a Pinecone-compatible filter dictionary.
+    Supports multi-select via the $in operator.
+    """
+    filters = {}
+
+    # If user selected specific categories: { "category": { "$in": ["anime", "sports"] } }
+    if request.categories and len(request.categories) > 0:
+        filters["category"] = {"$in": request.categories}
+
+    # If user selected specific years: { "year": { "$in": [2021, 2024] } }
+    if request.years and len(request.years) > 0:
+        filters["year"] = {"$in": [int(y) for y in request.years]}
+
+    return filters if filters else None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,11 +122,13 @@ async def health_check(db=Depends(get_db)):
 @app.post("/search", response_model=SearchResponse)
 async def search(
     request: SearchRequest, 
+    sort_by: str = Query("confidence", enum=["confidence", "time"]), # Added sort toggle
     db=Depends(get_db),
-    encoder: CLIPTextEncoder = Depends(get_encoder)
+    encoder: CLIPTextEncoder = Depends(get_encoder),
+    settings: Settings = Depends(get_settings)
 ):
     """
-    Search endpoint: Converts text to vector and queries Pinecone.
+    Search endpoint with Thresholding and Sorting logic 
     """
     start_time = time.time()
     
@@ -110,26 +136,46 @@ async def search(
         # 1. Generate real embedding from user query
         query_vector = encoder.encode_text(request.query)
 
-        # 2. Query Pinecone with metadata filters
-        filter_dict = {}
-        if request.category_filter:
-            filter_dict["category"] = {"$eq": request.category_filter}
-        if request.year_filter:
-            filter_dict["year"] = {"$eq": request.year_filter}
+        # 2. Build Hybrid Filters
+        pinecone_filters = build_pinecone_filters(request)
 
         query_response = db.query(
             vector=query_vector,
             top_k=request.top_k,
             include_metadata=True,
-            filter=filter_dict if filter_dict else None
+            filter=pinecone_filters
         )
 
-        # 3. Map Results
-        results = [map_metadata_to_match(m) for m in query_response.get("matches", [])]
+        # 3. Map and Filter by Threshold
+        all_results = [map_metadata_to_match(m) for m in query_response.get("matches", [])]
+        
+        # Calculate MAX SCORE for logs (before we filter or sort)
+        # This tells us the absolute best match found by the AI
+        max_score = max([res.score for res in all_results]) if all_results else 0.0
 
+        filtered_results = [
+            res for res in all_results 
+            if res.score >= settings.MIN_SCORE_THRESHOLD
+        ]
+
+        # 4. Sort
+        if sort_by == "time":
+            filtered_results.sort(key=lambda x: x.start_time)
+        else:
+            filtered_results.sort(key=lambda x: x.score, reverse=True)
+
+        # 5. Logging
+        # We log max_score to see if the AI found ANYTHING, 
+        # even if it was below our display threshold.
+        logger.info(
+            f"Query: [{request.query}] | "
+            f"Max Score: {max_score:.4f} | "
+            f"Returned: {len(filtered_results)}/{len(all_results)} | "
+            f"Sort: {sort_by}"
+        )
         return SearchResponse(
-            results=results,
-            total_matches=len(results),
+            results=filtered_results,
+            total_matches=len(filtered_results),
             processing_time_ms=round((time.time() - start_time) * 1000, 2)
         )
 
