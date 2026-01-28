@@ -1,14 +1,15 @@
 import logging
 import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
-from schemas import SearchRequest, SearchResponse
-from database import PineconeClient, map_metadata_to_match
+from schemas import SearchRequest, SearchResponse, VideoMatch
+from database import PineconeAsyncClient, map_metadata_to_match
 from encoder import CLIPTextEncoder
 
 # --- CONFIGURATION  ---
@@ -67,18 +68,22 @@ def build_pinecone_filters(request: SearchRequest) -> Optional[Dict[str, Any]]:
 async def lifespan(app: FastAPI):
     """
     Handles startup and shutdown events.
-    W4D4: Initializes and warms up the CLIP model on startup.
+    Initializes and warms up the CLIP model on startup.
     """
     settings = get_settings()
     logger.info("--- SERVER STARTING ---")
     
-    # 1. Initialize & Warm up Encoder
-    encoder = CLIPTextEncoder.get_instance(settings.MODEL_NAME)
-    encoder.warm_up()
+    # 1. Warm up AI
+    CLIPTextEncoder.get_instance(settings.MODEL_NAME).warm_up()
     
-    yield # Server is now running and handling requests
+    # 2. Init Pinecone
+    await PineconeAsyncClient.get_index(settings.PINECONE_API_KEY, settings.PINECONE_INDEX_NAME)
     
+    yield # API is running...
+    
+    # 3. CLEANUP (Fixes 'Unclosed client session')
     logger.info("--- SERVER SHUTTING DOWN ---")
+    await PineconeAsyncClient.close()
 
 
 # --- INITIALIZATION ---
@@ -92,14 +97,23 @@ app = FastAPI(
     version=get_settings().VERSION,
     lifespan=lifespan
 )
+# --- GLOBAL ERROR HANDLING ---
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logging.error(f"Global Error: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Internal error.", "detail": str(exc)},
+    )
 
 # --- DEPENDENCIES ---
 
-def get_db():
-    """Dependency that provides the Pinecone index instance."""
+async def get_db():
+    """Dependency that provides the Async Pinecone index instance."""
     settings = get_settings()
     try:
-        return PineconeClient(settings.PINECONE_API_KEY, settings.PINECONE_INDEX_NAME)
+        return await PineconeAsyncClient.get_index(settings.PINECONE_API_KEY, settings.PINECONE_INDEX_NAME)
     except ConnectionError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
@@ -114,9 +128,10 @@ def get_encoder():
 async def health_check(db=Depends(get_db)):
     """Health check that also verifies DB connectivity."""
     try:
-        stats = db.describe_index_stats()
+        stats = await db.describe_index_stats()
         return {"status": "healthy", "db_connected": True, "vector_count": stats.total_vector_count}
     except Exception as e:
+        logger.error(f"Health check failed: {e}")
         return {"status": "unhealthy", "error": str(e)}
 
 @app.post("/search", response_model=SearchResponse)
@@ -139,7 +154,7 @@ async def search(
         # 2. Build Hybrid Filters
         pinecone_filters = build_pinecone_filters(request)
 
-        query_response = db.query(
+        query_response = await db.query(
             vector=query_vector,
             top_k=request.top_k,
             include_metadata=True,
