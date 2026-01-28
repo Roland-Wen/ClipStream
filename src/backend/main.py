@@ -3,6 +3,7 @@ import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import Optional, Dict, Any, List
@@ -28,8 +29,14 @@ class Settings(BaseSettings):
     PINECONE_API_KEY: str = ""
     PINECONE_INDEX_NAME: str = "clip-stream"
 
-    # NEW: Default Search Settings
+    # Default Search Settings
     MIN_SCORE_THRESHOLD: float = 0.26 # Anything below this is likely noise
+
+    # Explicitly list the exact protocol, domain, and port of frontend
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:8501",  # Streamlit default
+        "http://127.0.0.1:8501"   # Alternative local address
+    ]
     
     # Model Config
     MODEL_NAME: str = "openai/clip-vit-base-patch32"
@@ -42,10 +49,8 @@ def get_settings():
     """Returns a cached instance of the settings."""
     return Settings()
 
-# --- LIFESPAN (Startup/Shutdown) ---
 
 # --- UTILS: PINECONE FILTER BUILDER ---
-
 def build_pinecone_filters(request: SearchRequest) -> Optional[Dict[str, Any]]:
     """
     Constructs a Pinecone-compatible filter dictionary.
@@ -63,7 +68,7 @@ def build_pinecone_filters(request: SearchRequest) -> Optional[Dict[str, Any]]:
 
     return filters if filters else None
 
-
+# --- LIFESPAN (Startup/Shutdown) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -97,14 +102,40 @@ app = FastAPI(
     version=get_settings().VERSION,
     lifespan=lifespan
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().CORS_ORIGINS,  # Allows specific origins (or * for all)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
+
 # --- GLOBAL ERROR HANDLING ---
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """
+    Handles expected errors (like 404 Not Found) with a clean JSON format.
+    """
+    logger.warning(f"HTTP Error {exc.status_code}: {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"status": "error", "message": exc.detail},
+    )
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logging.error(f"Global Error: {exc}")
+    """
+    Handles unexpected crashes (500 Internal Server Error).
+    """
+    logger.error(f"Global Crash: {exc}", exc_info=True) # exc_info gives us the stack trace in logs
     return JSONResponse(
         status_code=500,
-        content={"message": "Internal error.", "detail": str(exc)},
+        content={
+            "status": "critical_error", 
+            "message": "An internal server error occurred. Please contact support."
+        },
     )
 
 # --- DEPENDENCIES ---
@@ -173,6 +204,18 @@ async def search(
             if res.score >= settings.MIN_SCORE_THRESHOLD
         ]
 
+        # ---No results handling---
+        if not filtered_results:
+            # Distinguish between "Pinecone found nothing" vs "Threshold filtered everything"
+            if not all_results:
+                msg = "No video content found matching your query criteria."
+            else:
+                msg = (f"Found {len(all_results)} matches, but they were all below the "
+                       f"confidence threshold ({settings.MIN_SCORE_THRESHOLD}). Try a more specific query.")
+            
+            # We use 404 to indicate 'Resource Not Found'
+            raise HTTPException(status_code=404, detail=msg)
+
         # 4. Sort
         if sort_by == "time":
             filtered_results.sort(key=lambda x: x.start_time)
@@ -194,9 +237,12 @@ async def search(
             processing_time_ms=round((time.time() - start_time) * 1000, 2)
         )
 
+    except HTTPException as he:
+        # Re-raise HTTP exceptions (like our new 404) so they pass through
+        raise he
     except Exception as e:
         logger.error(f"Search failed: {e}")
-        raise HTTPException(status_code=500, detail="Internal search engine error")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 async def root():

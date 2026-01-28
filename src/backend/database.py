@@ -87,5 +87,5 @@ def map_metadata_to_match(match: dict) -> VideoMatch:
         score=round(match.get("score", 0.0), 4),
         start_time=float(metadata.get("start_time", 0.0)),
         end_time=float(metadata.get("end_time", 0.0)),
-        video_url=None # Placeholder: URL logic will be added in Week 5
+        video_url=metadata.get("path") # TODO: Link to public URL
     )
