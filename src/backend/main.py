@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # Default Search Settings
     MIN_SCORE_THRESHOLD: float = 0.26 # Anything below this is likely noise
 
+    # Control which engine powers the search
+    # Options: "torch" (Baseline), "onnx" (Optimized), "onnx_quant" (Extreme Speed)
+    MODEL_BACKEND: str = "onnx"
+
     # Explicitly list the exact protocol, domain, and port of frontend
     CORS_ORIGINS: List[str] = [
         "http://localhost:8501",  # Streamlit default
@@ -79,7 +83,7 @@ async def lifespan(app: FastAPI):
     logger.info("--- SERVER STARTING ---")
     
     # 1. Warm up AI
-    CLIPTextEncoder.get_instance(settings.MODEL_NAME).warm_up()
+    CLIPTextEncoder.get_instance(settings.MODEL_NAME, settings.MODEL_BACKEND).warm_up()
     
     # 2. Init Pinecone
     await PineconeAsyncClient.get_index(settings.PINECONE_API_KEY, settings.PINECONE_INDEX_NAME)
@@ -151,7 +155,10 @@ async def get_db():
 def get_encoder():
     """Dependency to get the already-initialized encoder."""
     settings = get_settings()
-    return CLIPTextEncoder.get_instance(settings.MODEL_NAME)
+    return CLIPTextEncoder.get_instance(
+        model_name=settings.MODEL_NAME, 
+        backend=settings.MODEL_BACKEND
+    )
 
 # --- ENDPOINTS ---
 
