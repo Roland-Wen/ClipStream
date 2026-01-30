@@ -6,3 +6,6 @@ pinecone
 transformers>=4.0.0
 pytorch>=1.0.0
 httpx
+optimum[onnxruntime]
+onnx
+scikit-learn
