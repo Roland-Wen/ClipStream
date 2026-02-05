@@ -9,3 +9,5 @@ httpx
 optimum[onnxruntime]
 onnx
 scikit-learn
+psutil
+matplotlib
