@@ -6,10 +6,9 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
-from typing import Optional, Dict, Any, List
+from typing import List, Dict, Any, Optional
 
-
-from schemas import SearchRequest, SearchResponse, VideoMatch
+from schemas import SearchRequest, SearchResponse
 from database import PineconeAsyncClient, map_metadata_to_match
 from encoder import CLIPTextEncoder
 
@@ -23,7 +22,7 @@ class Settings(BaseSettings):
     # Project Info
     APP_NAME: str = "ClipStream API"
     DEBUG_MODE: bool = True
-    VERSION: str = "0.2.0"
+    VERSION: str = "0.3.0"
 
     # Infrastructure (Keys will be loaded from .env)
     PINECONE_API_KEY: str = ""
@@ -43,7 +42,7 @@ class Settings(BaseSettings):
     ]
     
     # Model Config
-    MODEL_NAME: str = "openai/clip-vit-base-patch32"
+    # MODEL_NAME: str = "openai/clip-vit-base-patch32"
 
     # Pydantic Settings Config
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8')
@@ -75,22 +74,17 @@ def build_pinecone_filters(request: SearchRequest) -> Optional[Dict[str, Any]]:
 # --- LIFESPAN (Startup/Shutdown) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Handles startup and shutdown events.
-    Initializes and warms up the CLIP model on startup.
-    """
     settings = get_settings()
-    logger.info("--- SERVER STARTING ---")
+    logger.info("--- SERVER STARTING (ONNX PURE) ---")
     
-    # 1. Warm up AI
-    CLIPTextEncoder.get_instance(settings.MODEL_NAME, settings.MODEL_BACKEND).warm_up()
+    # 1. Warm up AI (No arguments needed now)
+    CLIPTextEncoder.get_instance().warm_up()
     
     # 2. Init Pinecone
     await PineconeAsyncClient.get_index(settings.PINECONE_API_KEY, settings.PINECONE_INDEX_NAME)
     
-    yield # API is running...
+    yield
     
-    # 3. CLEANUP (Fixes 'Unclosed client session')
     logger.info("--- SERVER SHUTTING DOWN ---")
     await PineconeAsyncClient.close()
 
@@ -155,10 +149,7 @@ async def get_db():
 def get_encoder():
     """Dependency to get the already-initialized encoder."""
     settings = get_settings()
-    return CLIPTextEncoder.get_instance(
-        model_name=settings.MODEL_NAME, 
-        backend=settings.MODEL_BACKEND
-    )
+    return CLIPTextEncoder.get_instance()
 
 # --- ENDPOINTS ---
 
