@@ -33,15 +33,16 @@ We conducted a "Hybrid Quantization" experiment by freezing the last $N$ layers 
 ### **3. Performance Benchmarking**
 Benchmarks were conducted on a CPU-only environment (Local Machine).
 
-| Backend | Avg. Latency (ms) | Accuracy | Size (MB) |
-| :--- | :--- | :--- | :--- |
-| **PyTorch (Baseline)** | ??? ms | 1.0000 | ~600 MB |
-| **ONNX (FP32)** | ??? ms | 1.0000 | ~240 MB |
-| **ONNX (Hybrid INT8)** | ??? ms | 0.9989 | ~170 MB |
+| Backend | Avg. Latency (ms) | Accuracy | Size (MB) | Active RAM (MB)
+| :--- | :--- | :--- | :--- | :--- |
+| **PyTorch (Baseline)** | 75.66 ms | 1.0000 | ~600 MB | ~250 MB
+| **ONNX (FP32)** | 47.07 ms | 1.0000 | ~240 MB | ~260 MB
+| **ONNX (Hybrid INT8)** | 48.03 ms | 0.9989 | ~170 MB | ~180 MB
 
 **Summary of Wins:**
-* **??% Latency Reduction** by switching from PyTorch to ONNX Runtime.
-* **71% Storage Reduction** via model decoupling and Embedding Quantization.
+* **1.58x Latency Speedup** by switching from PyTorch to ONNX Runtime.
+* **0.28x Storage Reduction** via model decoupling and Embedding Quantization.
+* **0.72x Active RAM Usage Reduction** via model decoupling and Embedding Quantization.
 * **Zero Loss** in semantic retrieval performance for visual search queries.
 
 ---
