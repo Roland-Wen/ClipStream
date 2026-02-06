@@ -8,3 +8,4 @@ onnx
 scikit-learn
 psutil
 matplotlib
+loguru

@@ -1,12 +1,16 @@
-import logging
+import sys
 import time
+import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, Query, Request
+from fastapi import FastAPI, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import List, Dict, Any, Optional
+from loguru import logger
+
+
 
 from schemas import SearchRequest, SearchResponse
 from database import PineconeAsyncClient, map_metadata_to_match
@@ -22,7 +26,7 @@ class Settings(BaseSettings):
     # Project Info
     APP_NAME: str = "ClipStream API"
     DEBUG_MODE: bool = True
-    VERSION: str = "0.3.0"
+    VERSION: str = "0.3.1"
 
     # Infrastructure (Keys will be loaded from .env)
     PINECONE_API_KEY: str = ""
@@ -31,18 +35,15 @@ class Settings(BaseSettings):
     # Default Search Settings
     MIN_SCORE_THRESHOLD: float = 0.26 # Anything below this is likely noise
 
-    # Control which engine powers the search
-    # Options: "torch" (Baseline), "onnx" (Optimized), "onnx_quant" (Extreme Speed)
-    MODEL_BACKEND: str = "onnx"
-
     # Explicitly list the exact protocol, domain, and port of frontend
     CORS_ORIGINS: List[str] = [
         "http://localhost:8501",  # Streamlit default
         "http://127.0.0.1:8501"   # Alternative local address
     ]
     
-    # Model Config
-    # MODEL_NAME: str = "openai/clip-vit-base-patch32"
+    # Logging
+    LOG_LEVEL: str = "INFO"
+    JSON_LOGS: bool = True  # Enable for production
 
     # Pydantic Settings Config
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8')
@@ -75,7 +76,9 @@ def build_pinecone_filters(request: SearchRequest) -> Optional[Dict[str, Any]]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    logger.info("--- SERVER STARTING (ONNX PURE) ---")
+    setup_logging(settings)
+    
+    logger.info("--- SERVER STARTING ---", version=settings.VERSION, mode="ONNX Pure")
     
     # 1. Warm up AI (No arguments needed now)
     CLIPTextEncoder.get_instance().warm_up()
@@ -88,19 +91,61 @@ async def lifespan(app: FastAPI):
     logger.info("--- SERVER SHUTTING DOWN ---")
     await PineconeAsyncClient.close()
 
+# --- LOGGING SETUP ---
+def setup_logging(settings: Settings):
+    """Configures loguru with a safe request_id default."""
+    logger.remove()
+
+    # This 'patch' ensures 'request_id' always exists in 'extra'
+    # so the formatter doesn't crash on startup/shutdown logs.
+    def patch_record(record):
+        if "request_id" not in record["extra"]:
+            record["extra"]["request_id"] = "SYSTEM"
+
+    logger.configure(patcher=patch_record)
+
+    if settings.JSON_LOGS:
+        logger.add(sys.stdout, serialize=True, level=settings.LOG_LEVEL)
+    else:
+        logger.add(
+            sys.stdout,
+            colorize=True,
+            format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[request_id]}</cyan> - <level>{message}</level> <dim>{extra}</dim>",
+            level=settings.LOG_LEVEL
+        )
+
+# --- MIDDLEWARE ---
+async def request_id_middleware(request: Request, call_next):
+    """
+    Generates a unique Request ID for every incoming call.
+    Binds it to the logger context so all subsequent logs include it.
+    """
+    request_id = str(uuid.uuid4())
+    
+    # Contextualize: All logs inside this block get 'request_id' automatically
+    with logger.contextualize(request_id=request_id):
+        logger.info(f"Incoming request: {request.method} {request.url.path}")
+        start_time = time.perf_counter()
+        
+        try:
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            
+            process_time = (time.perf_counter() - start_time) * 1000
+            logger.info(f"Request completed", status_code=response.status_code, duration_ms=round(process_time, 2))
+            return response
+            
+        except Exception as e:
+            logger.error(f"Request failed: {e}")
+            raise e
 
 # --- INITIALIZATION ---
-
-# Setup basic logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 app = FastAPI(
     title=get_settings().APP_NAME,
     version=get_settings().VERSION,
     lifespan=lifespan
 )
-
+app.middleware("http")(request_id_middleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().CORS_ORIGINS,  # Allows specific origins (or * for all)
@@ -148,7 +193,6 @@ async def get_db():
 
 def get_encoder():
     """Dependency to get the already-initialized encoder."""
-    settings = get_settings()
     return CLIPTextEncoder.get_instance()
 
 # --- ENDPOINTS ---
@@ -174,21 +218,28 @@ async def search(
     """
     Search endpoint with Thresholding and Sorting logic 
     """
-    start_time = time.time()
-    
+    total_start = time.perf_counter()    
+    metrics = {}
+
     try:
-        # 1. Generate real embedding from user query
+        # PHASE 1: Embedding (CPU Bound)
+        t0 = time.perf_counter()
         query_vector = encoder.encode_text(request.query)
-
-        # 2. Build Hybrid Filters
+        metrics["latency_embedding_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        logger.debug("Embedding generated", latency=metrics["latency_embedding_ms"])
+        
+        # PHASE 2: Retrieval (IO Bound)
         pinecone_filters = build_pinecone_filters(request)
-
+        
+        t1 = time.perf_counter()
         query_response = await db.query(
             vector=query_vector,
             top_k=request.top_k,
             include_metadata=True,
             filter=pinecone_filters
         )
+        metrics["latency_pinecone_ms"] = round((time.perf_counter() - t1) * 1000, 2)
+        logger.debug("Vectors retrieved", latency=metrics["latency_pinecone_ms"], matches=len(query_response.get("matches", [])))
 
         # 3. Map and Filter by Threshold
         all_results = [map_metadata_to_match(m) for m in query_response.get("matches", [])]
@@ -223,23 +274,25 @@ async def search(
         # 5. Logging
         # We log max_score to see if the AI found ANYTHING, 
         # even if it was below our display threshold.
+        total_time = round((time.perf_counter() - total_start) * 1000, 2)
         logger.info(
-            f"Query: [{request.query}] | "
-            f"Max Score: {max_score:.4f} | "
-            f"Returned: {len(filtered_results)}/{len(all_results)} | "
-            f"Sort: {sort_by}"
+            "Search executed successfully",
+            query=request.query,
+            results_count=len(filtered_results),
+            total_latency_ms=total_time,
+            breakdown=metrics
         )
         return SearchResponse(
             results=filtered_results,
             total_matches=len(filtered_results),
-            processing_time_ms=round((time.time() - start_time) * 1000, 2)
+            processing_time_ms=total_time
         )
 
     except HTTPException as he:
         # Re-raise HTTP exceptions (like our new 404) so they pass through
         raise he
     except Exception as e:
-        logger.error(f"Search failed: {e}")
+        logger.exception("Search endpoint crashed")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
@@ -250,4 +303,4 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     # In production, we would use a proper command, but this allows for local testing
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_config=None)

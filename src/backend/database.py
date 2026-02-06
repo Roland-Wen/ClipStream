@@ -1,10 +1,9 @@
-import logging
+from loguru import logger
 import asyncio
 from pinecone import PineconeAsyncio
 from schemas import VideoMatch
 from typing import List, Optional, Dict, Any
 
-logger = logging.getLogger(__name__)
 
 class PineconeAsyncClient:
     """

@@ -1,4 +1,4 @@
-import logging
+from loguru import logger
 import time
 import os
 import numpy as np
@@ -6,7 +6,6 @@ import onnxruntime as ort
 from tokenizers import Tokenizer
 from typing import List
 
-logger = logging.getLogger(__name__)
 
 class CLIPTextEncoder:
     _instance = None
