@@ -1,0 +1,8 @@
+[run]
+omit =
+    # Omit the entire tests directory (mocks, conftest, stress tests)
+    tests/*
+    */tests/*
+    
+    # Omit the optimization scripts if they are in the source tree
+    optimizations/*
