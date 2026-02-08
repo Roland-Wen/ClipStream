@@ -1,0 +1,20 @@
+# Standard ignores
+__pycache__/
+*.pyc
+.env
+.git
+.pytest_cache
+
+# CRITICAL: Exclude local virtual environments
+venv/
+.venv/
+env/
+
+# CRITICAL: Exclude original heavy models
+onnx/text_model.onnx
+onnx/text_model_pre.onnx
+onnx/temp_hybrid_*.onnx
+
+# Exclude optimization scripts not needed for runtime
+optimizations/
+tests/

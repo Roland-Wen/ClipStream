@@ -1,14 +1,19 @@
+# --- CORE API ---
 fastapi>=0.100.0
 uvicorn>=0.22.0
 pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
-pinecone
 httpx
-onnx
-scikit-learn
 psutil
-matplotlib
 loguru
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-pytest-cov>=4.0.0
+
+# --- INFERENCE ENGINE ---
+# We use the runtime only (much smaller than 'onnx')
+onnxruntime>=1.15.0  
+numpy
+
+# --- TOKENIZATION ---
+tokenizers>=0.13.0
+
+# --- DATABASE ---
+pinecone[asyncio]
