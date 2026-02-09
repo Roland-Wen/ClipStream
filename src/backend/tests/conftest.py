@@ -1,66 +1,107 @@
+import sys
+from unittest.mock import MagicMock, AsyncMock
+
+# --- 1. THE NUCLEAR OPTION: Mock 'pinecone' before ANY import happens ---
+mock_pinecone_module = MagicMock()
+
+# Mock the class factory
+mock_pinecone_class = MagicMock()
+
+# IMPORTANT FIX 1: Map BOTH 'Pinecone' and 'PineconeAsyncio' to the same mock class
+# Your database.py imports PineconeAsyncio, so we must ensure that name exists.
+mock_pinecone_module.Pinecone = mock_pinecone_class
+mock_pinecone_module.PineconeAsyncio = mock_pinecone_class
+
+# Create the specific index mock that acts as the "Async Engine"
+mock_index = AsyncMock()
+
+# Create the data object for stats
+stats_response = MagicMock(total_vector_count=1234)
+
+# Make BOTH query and describe_index_stats AsyncMocks so they can be awaited
+mock_index.query = AsyncMock(return_value={"matches": []})
+mock_index.describe_index_stats = AsyncMock(return_value=stats_response)
+
+# IMPORTANT: Set up the client instance (what PineconeAsyncio() returns)
+# It needs describe_index(), IndexAsyncio(), and close() to be async
+mock_client_instance = MagicMock()
+
+# Mock describe_index to return an object with .host attribute
+description_response = MagicMock(host="test-host.pinecone.io")
+mock_client_instance.describe_index = AsyncMock(return_value=description_response)
+
+# Mock IndexAsyncio to return our mock_index
+mock_client_instance.IndexAsyncio = MagicMock(return_value=mock_index)
+
+# Mock close as AsyncMock
+mock_client_instance.close = AsyncMock()
+
+# Make PineconeAsyncio() return our configured mock client
+mock_pinecone_class.return_value = mock_client_instance
+
+# IMPORTANT FIX 2: Mock 'IndexAsyncio'
+# Your database.py calls `client.IndexAsyncio(...)`, not `client.Index(...)`
+# We map both just to be safe.
+mock_pinecone_class.return_value.Index.return_value = mock_index
+mock_pinecone_class.return_value.IndexAsyncio.return_value = mock_index
+
+# INJECT INTO SYSTEM
+sys.modules["pinecone"] = mock_pinecone_module
+
+
+# --- 2. NOW we can import the rest safely ---
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+import os
 from fastapi.testclient import TestClient
-# We import app inside the fixture to ensure patches apply before import
+
+# Set dummy env vars so Pydantic settings don't crash
+os.environ["PINECONE_API_KEY"] = "test_key_only"
+os.environ["PINECONE_INDEX_NAME"] = "test_index"
+
+
+# --- 3. FIXTURES ---
 
 @pytest.fixture
 def mock_pinecone_db():
     """
-    Mock the index operations (query, stats).
+    Returns the same mock index we injected globally, 
+    so tests can assert against it.
     """
-    mock_index = AsyncMock()
-    # Mock search results
-    mock_index.query.return_value = {"matches": []}
-    # Mock stats
-    mock_index.describe_index_stats.return_value = MagicMock(total_vector_count=1234)
     return mock_index
 
 @pytest.fixture
 def mock_encoder():
     """
-    Manually inject a mock into the Singleton _instance.
-    This bypasses __init__ entirely, so no ONNX files are needed.
+    Mock the Encoder to bypass ONNX file loading.
+    Patches it in main.py where it's used.
     """
+    from unittest.mock import patch
+
     mock_instance = MagicMock()
+    # Mock encode_text to return a standard list of floats
     mock_instance.encode_text.return_value = [0.0] * 512
     mock_instance.warm_up.return_value = None
-    
-    # Import inside fixture to avoid early init
-    from encoder import CLIPTextEncoder
-    
-    # Save original
-    previous_instance = CLIPTextEncoder._instance
-    # Inject mock
-    CLIPTextEncoder._instance = mock_instance
-    
-    yield mock_instance
-    
-    # Restore original
-    CLIPTextEncoder._instance = previous_instance
 
-@pytest.fixture(autouse=True)
-def mock_pinecone_client_init():
-    """
-    Automatically patch the 'pinecone.Pinecone' class GLOBALLY.
-    This works regardless of whether main.py uses 'import pinecone' 
-    or 'from pinecone import Pinecone'.
-    """
-    with patch("pinecone.Pinecone") as MockClient:
-        # Ensure that when pc.Index("name") is called, it returns our AsyncMock
-        MockClient.return_value.Index.return_value = AsyncMock()
-        yield MockClient
+    # Patch where it's imported in main.py
+    with patch("main.CLIPTextEncoder") as MockClass:
+        MockClass.get_instance.return_value = mock_instance
+        yield mock_instance
 
 @pytest.fixture
-def client(mock_pinecone_db, mock_encoder, mock_pinecone_client_init):
+def client(mock_pinecone_db, mock_encoder):
     """
-    Returns a TestClient with all dependencies mocked.
+    Test Client.
     """
+    # Import app INSIDE the fixture (Lazy Import)
     from main import app, get_db
-    
-    # Override the get_db dependency to return our specific mock index
-    app.dependency_overrides[get_db] = lambda: mock_pinecone_db
-    
+
+    # Override dependency: get_db is async, so the override must be too
+    async def mock_get_db():
+        return mock_pinecone_db
+
+    app.dependency_overrides[get_db] = mock_get_db
+
     with TestClient(app) as c:
         yield c
-    
+
     app.dependency_overrides.clear()
