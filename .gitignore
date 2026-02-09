@@ -208,4 +208,3 @@ __marimo__/
 
 # onnx models
 *.onnx
-src/backend/tokenizer.json
