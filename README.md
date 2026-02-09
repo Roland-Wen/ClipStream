@@ -1,5 +1,9 @@
 🎬 ClipStream
 
+![CI Status](https://github.com/Roland-Wen/ClipStream/actions/workflows/ci.yml/badge.svg)
+![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
 ClipStream is a semantic video search engine that allows users to query video content using natural language (e.g., "A batter hitting a home run").
 
 It leverages OpenAI's CLIP model for multimodal embedding and Pinecone for vector retrieval, optimized for CPU inference using ONNX Runtime.
@@ -12,17 +16,17 @@ Online API: FastAPI (CPU Optimized) -> ONNX Quantized Model -> Vector Search.
 
 🚀 Project Roadmap
 
-[ ] Week 1: Video Ingestion & Adaptive Scene Detection
+[x] Week 1: Video Ingestion & Adaptive Scene Detection
 
-[ ] Week 2: Feature Extraction with ViT (Vision Transformer)
+[x] Week 2: Feature Extraction with CLIP
 
-[ ] Week 3: Vector Database Indexing (Pinecone)
+[x] Week 3: Vector Database Indexing (Pinecone)
 
-[ ] Week 4: FastAPI Backend Development
+[x] Week 4: FastAPI Backend Development
 
-[ ] Week 5: Search Logic & Ranking
+[x] Week 5: Search Logic & Ranking
 
-[ ] Week 6: ONNX Optimization & Quantization (Critical Path)
+[x] Week 6: ONNX Optimization & Quantization
 
 [ ] Week 7: Production Engineering (Logging, CI/CD)
 
