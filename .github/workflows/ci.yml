@@ -35,6 +35,13 @@ jobs:
           pip install -r requirements.txt
           # Install test-specific dependencies not in lean requirements
           pip install pytest pytest-asyncio pytest-cov
+          
+      - name: Create Dummy Model Assets
+        run: |
+          mkdir -p src/backend/onnx
+          # Create a fake file so the tests that expect these files to exist can run without error
+          touch src/backend/onnx/text_model_optimized.onnx
+          
       - name: Run Pytest with Coverage
         run: |
           cd src/backend
@@ -50,12 +57,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Create Dummy Model Assets
-        run: |
-          mkdir -p src/backend/onnx
-          # Create a fake file so the Docker 'COPY' doesn't fail
-          touch src/backend/onnx/text_model_optimized.onnx
-          
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
