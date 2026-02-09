@@ -6,6 +6,7 @@ python-dotenv>=1.0.0
 httpx
 psutil
 loguru
+slowapi>=0.1.8
 
 # --- INFERENCE ENGINE ---
 # We use the runtime only (much smaller than 'onnx')

@@ -9,6 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import List, Dict, Any, Optional
 from loguru import logger
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 
 
@@ -26,7 +29,7 @@ class Settings(BaseSettings):
     # Project Info
     APP_NAME: str = "ClipStream API"
     DEBUG_MODE: bool = True
-    VERSION: str = "0.3.1"
+    VERSION: str = "0.5.0"
 
     # Infrastructure (Keys will be loaded from .env)
     PINECONE_API_KEY: str = ""
@@ -145,6 +148,11 @@ app = FastAPI(
     version=get_settings().VERSION,
     lifespan=lifespan
 )
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.middleware("http")(request_id_middleware)
 app.add_middleware(
     CORSMiddleware,
@@ -198,6 +206,7 @@ def get_encoder():
 # --- ENDPOINTS ---
 
 @app.get("/health")
+@limiter.exempt
 async def health_check(db=Depends(get_db)):
     """Health check that also verifies DB connectivity."""
     try:
@@ -208,9 +217,11 @@ async def health_check(db=Depends(get_db)):
         return {"status": "unhealthy", "error": str(e)}
 
 @app.post("/search", response_model=SearchResponse)
+@limiter.limit("20/minute")
 async def search(
-    request: SearchRequest, 
-    sort_by: str = Query("confidence", enum=["confidence", "time"]), # Added sort toggle
+    request: Request,
+    search_req: SearchRequest, # Renamed to avoid collision with 'request'
+    sort_by: str = Query("confidence", enum=["confidence", "time"]),
     db=Depends(get_db),
     encoder: CLIPTextEncoder = Depends(get_encoder),
     settings: Settings = Depends(get_settings)
@@ -224,17 +235,17 @@ async def search(
     try:
         # PHASE 1: Embedding (CPU Bound)
         t0 = time.perf_counter()
-        query_vector = encoder.encode_text(request.query)
+        query_vector = encoder.encode_text(search_req.query)
         metrics["latency_embedding_ms"] = round((time.perf_counter() - t0) * 1000, 2)
         logger.debug("Embedding generated", latency=metrics["latency_embedding_ms"])
         
         # PHASE 2: Retrieval (IO Bound)
-        pinecone_filters = build_pinecone_filters(request)
+        pinecone_filters = build_pinecone_filters(search_req)
         
         t1 = time.perf_counter()
         query_response = await db.query(
             vector=query_vector,
-            top_k=request.top_k,
+            top_k=search_req.top_k,
             include_metadata=True,
             filter=pinecone_filters
         )
@@ -277,7 +288,7 @@ async def search(
         total_time = round((time.perf_counter() - total_start) * 1000, 2)
         logger.info(
             "Search executed successfully",
-            query=request.query,
+            query=search_req.query,
             results_count=len(filtered_results),
             max_score=round(max_score, 4),
             total_latency_ms=total_time,
