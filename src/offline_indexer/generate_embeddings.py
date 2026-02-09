@@ -173,8 +173,10 @@ def main():
     
     print("🔄 Loading CLIP Model...")
     try:
-        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-        processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32",
+                                          revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268").to(device)
+        processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32",
+                                                  revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
     except Exception as e:
         print(f"❌ Failed to load model: {e}")
         sys.exit(1)

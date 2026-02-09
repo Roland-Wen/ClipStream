@@ -304,4 +304,4 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     # In production, we would use a proper command, but this allows for local testing
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_config=None)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_config=None) # nosec B104

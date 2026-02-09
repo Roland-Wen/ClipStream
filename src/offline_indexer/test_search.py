@@ -60,8 +60,10 @@ def run_search(config, filename, query_text, top_k=5):
 
     # Load Model (Text Only)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32",
+                                      revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268").to(device)
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32",
+                                              revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
     
     # Encode Query
     print(f"🔍 Searching for: '{query_text}'")

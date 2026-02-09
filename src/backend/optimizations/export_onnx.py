@@ -11,7 +11,8 @@ def export_manual():
 
     print(f"1. Loading Text Encoder from {model_id}...")
     # specifically load the Text-Tower-With-Projection (gives us the 512-dim vector)
-    model = CLIPTextModelWithProjection.from_pretrained(model_id)
+    model = CLIPTextModelWithProjection.from_pretrained(model_id, 
+                                                        revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
     model.eval()
 
     # 2. Create Dummy Inputs (Batch Size 1, Seq Length 77)

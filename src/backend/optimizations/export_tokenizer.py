@@ -6,7 +6,8 @@ def export_tokenizer():
     
     print(f"Loading tokenizer from {model_id}...")
     # Important: Use the 'Fast' version to get the compatible JSON format
-    tokenizer = CLIPTokenizerFast.from_pretrained(model_id)
+    tokenizer = CLIPTokenizerFast.from_pretrained(model_id,
+                                                  revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
     
     print(f"Saving to {output_path}...")
     tokenizer.backend_tokenizer.save(output_path)

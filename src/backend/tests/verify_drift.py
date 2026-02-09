@@ -7,7 +7,8 @@ def check_drift():
     model_fp32 = "onnx/text_model.onnx"
     model_optimized = "onnx/text_model_optimized.onnx"
 
-    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32",
+                                              revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
     test_queries = [
         "a cat sitting on a mat",
         "a huge birthday cake with candles",

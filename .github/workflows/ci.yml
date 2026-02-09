@@ -63,3 +63,21 @@ jobs:
         run: |
           cd src/backend
           docker build -t clipstream-backend:test .
+          
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install Security Tools
+        run: pip install pip-audit bandit
+
+      - name: Audit Dependencies
+        run: pip-audit -r src/backend/requirements.txt
+
+      - name: Static Security Analysis (Bandit)
+        run: bandit -r src/backend/ -ll

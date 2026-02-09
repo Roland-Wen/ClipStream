@@ -13,7 +13,8 @@ TEST_QUERY = "a cat sitting on a mat"
 def get_similarity(model_path):
     sess_base = ort.InferenceSession(MODEL_FP32, providers=["CPUExecutionProvider"])
     sess_test = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32",
+                                              revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
     
     inputs = tokenizer(TEST_QUERY, padding="max_length", max_length=77, return_tensors="np")
     ort_inputs = {k: v.astype(np.int64) for k, v in inputs.items()}

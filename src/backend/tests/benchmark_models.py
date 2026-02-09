@@ -22,7 +22,8 @@ WARMUP = 10
 class BenchmarkRunner:
     def __init__(self):
         self.process = psutil.Process(os.getpid())
-        self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32",
+                                                       revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
 
     def get_memory_mb(self):
         return self.process.memory_info().rss / (1024 * 1024)
@@ -32,7 +33,8 @@ class BenchmarkRunner:
         mem_base = self.get_memory_mb()
         
         # 1. Load Model (Lazy)
-        model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
+        model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32",
+                                                            revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
         model.eval()
         mem_post_load = self.get_memory_mb()
         

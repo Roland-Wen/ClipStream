@@ -10,8 +10,8 @@ def verify_conversion():
     test_text = "a professional baseball pitcher throwing a fastball"
 
     print("1. PyTorch Inference...")
-    tokenizer = CLIPTokenizer.from_pretrained(model_id)
-    pt_model = CLIPTextModelWithProjection.from_pretrained(model_id)
+    tokenizer = CLIPTokenizer.from_pretrained(model_id, revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
+    pt_model = CLIPTextModelWithProjection.from_pretrained(model_id, revision="3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268")
     pt_model.eval()
     
     # --- FIX START: FORCE PADDING TO 77 ---
