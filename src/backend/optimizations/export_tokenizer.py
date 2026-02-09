@@ -1,5 +1,4 @@
 from transformers import CLIPTokenizerFast
-import os
 
 def export_tokenizer():
     model_id = "openai/clip-vit-base-patch32"

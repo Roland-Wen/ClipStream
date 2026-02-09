@@ -16,7 +16,7 @@ async def send_request(client, i):
         resp = await client.post(URL, json=PAYLOAD, timeout=10.0)
         elapsed = (time.time() - start) * 1000
         return elapsed, resp.status_code
-    except Exception as e:
+    except Exception:
         return 0.0, 500
 
 async def stress_test():

@@ -2,7 +2,7 @@ import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, Query, Request, Response
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -132,7 +132,7 @@ async def request_id_middleware(request: Request, call_next):
             response.headers["X-Request-ID"] = request_id
             
             process_time = (time.perf_counter() - start_time) * 1000
-            logger.info(f"Request completed", status_code=response.status_code, duration_ms=round(process_time, 2))
+            logger.info("Request completed", status_code=response.status_code, duration_ms=round(process_time, 2))
             return response
             
         except Exception as e:
@@ -279,6 +279,7 @@ async def search(
             "Search executed successfully",
             query=request.query,
             results_count=len(filtered_results),
+            max_score=round(max_score, 4),
             total_latency_ms=total_time,
             breakdown=metrics
         )

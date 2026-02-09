@@ -28,7 +28,7 @@ class BenchmarkRunner:
         return self.process.memory_info().rss / (1024 * 1024)
 
     def benchmark_pytorch(self):
-        print(f"   🔄 Loading PyTorch Model...")
+        print("   🔄 Loading PyTorch Model...")
         mem_base = self.get_memory_mb()
         
         # 1. Load Model (Lazy)
@@ -110,7 +110,8 @@ class BenchmarkRunner:
         
         # Test ONNX
         for name, path in MODELS.items():
-            if name == "PyTorch (Original)": continue
+            if name == "PyTorch (Original)": 
+                continue
             print(f"\nTesting {name}...")
             lat, mem_active, mem_load = self.benchmark_onnx(path)
             if lat > 0:
@@ -141,7 +142,7 @@ class BenchmarkRunner:
 
         # Stacked Bar Chart for Memory
         ax.bar(x, load_rams, width, label='Initial Load (Cold)', color='#95a5a6')
-        ax.bar(x, [a - l for a, l in zip(active_rams, load_rams)], width, bottom=load_rams, label='Runtime Expansion (Hot)', color='#e74c3c')
+        ax.bar(x, [active - load for active, load in zip(active_rams, load_rams)], width, bottom=load_rams, label='Runtime Expansion (Hot)', color='#e74c3c')
 
         ax.set_ylabel('Memory Usage (MB)')
         ax.set_title('Memory Expansion: Lazy (PyTorch) vs Greedy (ONNX)')

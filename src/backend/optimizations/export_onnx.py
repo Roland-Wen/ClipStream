@@ -1,6 +1,6 @@
 import torch
 import os
-from transformers import CLIPTextModelWithProjection, CLIPTokenizer
+from transformers import CLIPTextModelWithProjection
 
 def export_manual():
     model_id = "openai/clip-vit-base-patch32"
