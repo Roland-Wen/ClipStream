@@ -1,4 +1,5 @@
 import sys
+import pytest
 from unittest.mock import MagicMock, AsyncMock
 
 # --- 1. THE NUCLEAR OPTION: Mock 'pinecone' before ANY import happens ---
@@ -48,11 +49,9 @@ mock_pinecone_class.return_value.IndexAsyncio.return_value = mock_index
 # INJECT INTO SYSTEM
 sys.modules["pinecone"] = mock_pinecone_module
 
-
 # --- 2. NOW we can import the rest safely ---
-import pytest
-import os
-from fastapi.testclient import TestClient
+import os  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 # Set dummy env vars so Pydantic settings don't crash
 os.environ["PINECONE_API_KEY"] = "test_key_only"
