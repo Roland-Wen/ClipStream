@@ -1,5 +1,4 @@
 import pytest
-import os
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 # We import app inside the fixture to ensure patches apply before import
