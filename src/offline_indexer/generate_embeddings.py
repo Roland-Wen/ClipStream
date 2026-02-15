@@ -132,8 +132,20 @@ def process_video_embeddings(config: ProjectConfig, filename: str, model: Any, p
             pixel_values = batch['pixel_values'].to(device)
             ids = batch['scene_id']
             
-            # Forward Pass
-            features = model.get_image_features(pixel_values=pixel_values)
+            # Call the model
+            outputs = model.get_image_features(pixel_values=pixel_values)
+            
+            # Robust extraction: transformers API can vary or return objects
+            if isinstance(outputs, torch.Tensor):
+                features = outputs
+            elif hasattr(outputs, 'image_embeds'):
+                features = outputs.image_embeds
+            elif hasattr(outputs, 'pooler_output'):
+                features = outputs.pooler_output
+            else:
+                # Fallback: Assume it behaves like a tuple or list
+                features = outputs[0] if isinstance(outputs, (tuple, list)) else outputs
+
             # Normalize
             features = features / features.norm(p=2, dim=-1, keepdim=True)
             
