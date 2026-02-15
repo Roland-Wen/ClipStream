@@ -17,7 +17,7 @@ import time
 import argparse
 import subprocess
 import cv2
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 def get_video_duration(video_path: str) -> float:
     """
@@ -101,6 +101,7 @@ def main():
     parser.add_argument('--video', type=str, required=True, help='Filename of video in /videos folder')
     parser.add_argument('--category', type=str, required=True, help='Category (e.g., anime, movie)')
     parser.add_argument('--year', type=int, required=True, help='Release year')
+    parser.add_argument('--yt_id', type=str, default='', help='YouTube Video ID (Optional)')
     parser.add_argument('--base_dir', type=str, default='/content/drive/MyDrive/ClipStream', help='Root project dir')
     
     args = parser.parse_args()
@@ -137,12 +138,16 @@ def main():
     ], "CLIP Embedding")
 
     # STEP 3: UPLOAD
-    breakdown['Upload'] = run_step(s_upload, [
+    # We pass the YouTube ID here so it can be injected into metadata
+    upload_args = [
         "--video", args.video,
         "--base_dir", args.base_dir,
         "--category", args.category,
         "--year", str(args.year)
-    ], "Cloud Upload")
+    ]
+    if args.yt_id:
+        upload_args.extend(["--yt_id", args.yt_id])
+    breakdown['Upload'] = run_step(s_upload, upload_args, "Cloud Upload")
 
     total_time = time.time() - total_start
     video_duration = get_video_duration(video_path)
