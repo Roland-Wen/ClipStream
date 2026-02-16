@@ -72,14 +72,14 @@ with st.sidebar:
     
     selected_cats = st.multiselect(
         "Categories",
-        options=["anime", "movie"],
-        default=[c for c in default_cats if c in ["anime", "movie"]],
+        options=["anime", "amv"],
+        default=[c for c in default_cats if c in ["anime", "amv"]],
         placeholder="All Categories"
     )
     
     selected_years = st.multiselect(
         "Years",
-        options=[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017],
+        options=[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015],
         default=[], 
         placeholder="All Years"
     )
