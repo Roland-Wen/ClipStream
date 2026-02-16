@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import concurrent.futures
 from PIL import Image
 from io import BytesIO
 from api_client import ClipStreamClient
@@ -36,6 +37,19 @@ def get_confidence_style(score: float):
     if score >= 0.30: return "🟢 High", "green"
     elif score >= 0.27: return "🟡 Medium", "orange"
     else: return "🔴 Low", "red"
+
+# Cache the image data so we don't re-download on every click
+@st.cache_data(show_spinner=False, ttl=3600)
+def fetch_image_from_url(url: str):
+    if not url:
+        return None
+    try:
+        # Use a timeout so the app doesn't hang on bad links
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        return Image.open(BytesIO(response.content))
+    except Exception:
+        return None
 
 # --- 1. URL PARAMETER HANDLING (Share Logic) ---
 # We read parameters on load to pre-fill widgets
@@ -157,24 +171,21 @@ if submitted or (st.session_state.auto_run and query):
 
 # --- RENDER RESULTS ---
 if st.session_state.last_results:
-    # Filter by Slider
+    # Filter results first
     filtered_results = [r for r in st.session_state.last_results if r['score'] >= min_confidence]
     
+    # Parallel Fetching: Download all images simultaneously
+    # This reduces total load time from sum(all_latencies) to max(single_latency)
+    image_urls = [r.get("thumbnail_url") for r in filtered_results]
+    
+    # "8" workers allows 8 images to download at the exact same time
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        loaded_images = list(executor.map(fetch_image_from_url, image_urls))
+
     st.divider()
     
-    # 4. Share Link Feature
-    # Construct a shareable link (simulated since we are localhost)
-    share_url = f"http://localhost:8501/?q={query.replace(' ', '+')}"
-    if selected_cats:
-        for cat in selected_cats:
-            share_url += f"&cat={cat}"
-            
-    with st.expander("🔗 Share these results"):
-        st.code(share_url, language="text")
-        st.caption("Copy this link to share your search configuration with others.")
-
     if not filtered_results:
-        st.warning(f"Matches found, but none met your confidence threshold of **{min_confidence}**.")
+        st.warning(f"Matches found, but none met your confidence threshold.")
     else:
         st.subheader(f"Top Matches ({len(filtered_results)})")
         cols = st.columns(3)
@@ -182,37 +193,38 @@ if st.session_state.last_results:
         for idx, result in enumerate(filtered_results):
             with cols[idx % 3]:
                 with st.container(border=True):
-                    # 1. Show the Public Google Drive Thumbnail
-                    thumb = result.get("thumbnail_url")
-                    if thumb:
-                        try:
-                            # 1. Fetch the image data on the server side
-                            response = requests.get(thumb)
-                            response.raise_for_status() # Check for HTTP errors
-                            
-                            # 2. Convert to an image object
-                            image_data = Image.open(BytesIO(response.content))
-                            
-                            # 3. Display the image object directly
-                            st.image(image_data, use_container_width=True)
-                        except Exception as e:
-                            st.error(f"Error loading image: {e}")
+                    # Playback State Logic
+                    play_key = f"is_playing_{result['scene_id']}"
+                    if play_key not in st.session_state:
+                        st.session_state[play_key] = False
+
+                    if st.session_state[play_key]:
+                        # Video Player
+                        # The 'start_time' parameter in st.video handles the seeking logic
+                        st.video(
+                            result['video_url'].split('&')[0], 
+                            start_time=int(result['start_time'])
+                        )
+                        if st.button("⏹️ Close Clip", key=f"close_{idx}"):
+                            st.session_state[play_key] = False
+                            st.rerun()
                     else:
-                        st.image("https://placehold.co/600x400/png?text=No+Thumbnail", use_container_width=True)
-                    
-                    # 2. Metadata Labels
-                    badge_text, badge_color = get_confidence_style(result['score'])
-                    st.markdown(f"**{result['video_id']}**")
-                    st.markdown(f":{badge_color}[**{badge_text}**] `{result['score']:.4f}`")
-                    
-                    timestamp = str(timedelta(seconds=int(result['start_time'])))
-                    st.caption(f"📍 Starts at: **{timestamp}**")
-                    
-                    # 3. Play Video Logic
-                    # We use an expander or a conditional block to show the video player
-                    if st.button("▶️ Play Video", key=f"btn_{idx}", use_container_width=True):
-                        if "youtube.com" in result['video_url']:
-                            # Streamlit handles YouTube embedding automatically
-                            st.video(result['video_url'])
+                        # Display the Pre-Fetched Image
+                        img_obj = loaded_images[idx]
+                        if img_obj:
+                            st.image(img_obj, use_container_width=True)
                         else:
-                            st.warning("No YouTube source available for this clip.")
+                            # Fallback placeholder
+                            st.image("https://placehold.co/600x400/png?text=No+Thumbnail", use_container_width=True)
+                        
+                        # Metadata & Buttons
+                        badge_text, badge_color = get_confidence_style(result['score'])
+                        st.markdown(f"**{result['video_id']}**")
+                        st.markdown(f":{badge_color}[**{badge_text}**] `{result['score']:.4f}`")
+                        
+                        timestamp = str(timedelta(seconds=int(result['start_time'])))
+                        st.caption(f"📍 Starts at: **{timestamp}**")
+                        
+                        if st.button("▶️ Play Video", key=f"btn_{idx}", use_container_width=True):
+                            st.session_state[play_key] = True
+                            st.rerun()
