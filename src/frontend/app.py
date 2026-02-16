@@ -1,4 +1,7 @@
 import streamlit as st
+import requests
+from PIL import Image
+from io import BytesIO
 from api_client import ClipStreamClient
 from datetime import timedelta
 
@@ -179,15 +182,37 @@ if st.session_state.last_results:
         for idx, result in enumerate(filtered_results):
             with cols[idx % 3]:
                 with st.container(border=True):
-                    video_id = result.get("video_id", "Unknown")
+                    # 1. Show the Public Google Drive Thumbnail
+                    thumb = result.get("thumbnail_url")
+                    if thumb:
+                        try:
+                            # 1. Fetch the image data on the server side
+                            response = requests.get(thumb)
+                            response.raise_for_status() # Check for HTTP errors
+                            
+                            # 2. Convert to an image object
+                            image_data = Image.open(BytesIO(response.content))
+                            
+                            # 3. Display the image object directly
+                            st.image(image_data, use_container_width=True)
+                        except Exception as e:
+                            st.error(f"Error loading image: {e}")
+                    else:
+                        st.image("https://placehold.co/600x400/png?text=No+Thumbnail", use_container_width=True)
+                    
+                    # 2. Metadata Labels
+                    badge_text, badge_color = get_confidence_style(result['score'])
+                    st.markdown(f"**{result['video_id']}**")
+                    st.markdown(f":{badge_color}[**{badge_text}**] `{result['score']:.4f}`")
+                    
                     timestamp = str(timedelta(seconds=int(result['start_time'])))
-                    score = result['score']
-                    thumb = result.get("thumbnail_url") or "https://placehold.co/600x400/png?text=Video+Frame"
-                    
-                    st.image(thumb, use_container_width=True)
-                    
-                    badge_text, badge_color = get_confidence_style(score)
-                    st.markdown(f"**{video_id}**")
-                    st.markdown(f":{badge_color}[**{badge_text}**] `{score:.4f}`")
                     st.caption(f"📍 Starts at: **{timestamp}**")
-                    st.button("▶️ Play Clip", key=f"btn_{idx}", use_container_width=True)
+                    
+                    # 3. Play Video Logic
+                    # We use an expander or a conditional block to show the video player
+                    if st.button("▶️ Play Video", key=f"btn_{idx}", use_container_width=True):
+                        if "youtube.com" in result['video_url']:
+                            # Streamlit handles YouTube embedding automatically
+                            st.video(result['video_url'])
+                        else:
+                            st.warning("No YouTube source available for this clip.")

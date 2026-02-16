@@ -80,11 +80,29 @@ def map_metadata_to_match(match: dict) -> VideoMatch:
     Helper to map raw Pinecone metadata to our Pydantic VideoMatch model.
     """
     metadata = match.get("metadata", {})
+    start_time = float(metadata.get("start_time", 0.0))
+    yt_id = metadata.get("youtube_id")
+    
+    # Construct the video URL if a YouTube ID exists
+    # If no YT ID, fallback to the original path (though it won't play in browser)
+    video_url = metadata.get("path")
+    if yt_id:
+        video_url = f"https://www.youtube.com/watch?v={yt_id}&t={int(start_time)}s"
+
+    # Replace the old logic in map_metadata_to_match:
+    thumbnail_url = metadata.get("thumbnail_url")
+    if thumbnail_url and "drive.google.com" in thumbnail_url:
+        # Extract the ID from the existing link
+        drive_id = thumbnail_url.split("id=")[-1]
+        # New Format: High-res thumbnail endpoint (up to 1000px)
+        thumbnail_url = f"https://lh3.googleusercontent.com/u/0/d/{drive_id}=w1000-h1000"
+
     return VideoMatch(
         video_id=metadata.get("video_name", "unknown"),
         scene_id=match.get("id"),
         score=round(match.get("score", 0.0), 4),
-        start_time=float(metadata.get("start_time", 0.0)),
+        start_time=start_time,
         end_time=float(metadata.get("end_time", 0.0)),
-        video_url=metadata.get("path") # TODO: Link to public URL
+        thumbnail_url=thumbnail_url,
+        video_url=video_url
     )
