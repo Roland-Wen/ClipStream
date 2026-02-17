@@ -1,51 +1,32 @@
-🎬 ClipStream
+---
+title: ClipStream
+emoji: 🎬
+colorFrom: blue
+colorTo: indigo
+sdk: streamlit
+app_file: src/frontend/app.py
+pinned: false
+---
 
-![CI Status](https://github.com/Roland-Wen/ClipStream/actions/workflows/ci.yml/badge.svg)
-![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+# 🎬 ClipStream: Semantic Video Search
 
-ClipStream is a semantic video search engine that allows users to query video content using natural language (e.g., "A batter hitting a home run").
+**ClipStream** is an AI-powered search engine that allows you to find specific moments in videos using natural language. Built with CLIP (Contrastive Language-Image Pre-training) and Pinecone, it bridges the gap between raw video pixels and semantic human descriptions.
 
-It leverages OpenAI's CLIP model for multimodal embedding and Pinecone for vector retrieval, optimized for CPU inference using ONNX Runtime.
+### 🚀 High-Level Architecture
+- **Frontend:** Streamlit (Hosted here on Hugging Face Spaces).
+- **Backend:** FastAPI (Hosted on Render).
+- **Vector Database:** Pinecone.
+- **Model:** CLIP (ViT-B/32) via Hugging Face Transformers.
 
-🏗️ Architecture
+---
 
-Offline Indexer: Google Colab (T4 GPU) -> OpenCV Scene Detect -> CLIP -> Pinecone.
+### 📖 Looking for the Full Documentation?
+This branch is optimized for deployment on Hugging Face Spaces. For the full technical breakdown, source code, and offline indexing scripts, visit the **[Main GitHub Repository](https://github.com/roland-wen/clipstream)**.
 
-Online API: FastAPI (CPU Optimized) -> ONNX Quantized Model -> Vector Search.
+### 🧪 Features
+- **Semantic Search:** Query videos using descriptive phrases (e.g., *"A character sprinting in the rain"*).
+- **Interactive Playback:** Jump directly to the identified timestamp in the YouTube source.
+- **Hybrid Cloud:** Decoupled architecture for improved security and performance.
 
-🚀 Project Roadmap
-
-[x] Week 1: Video Ingestion & Adaptive Scene Detection
-
-[x] Week 2: Feature Extraction with CLIP
-
-[x] Week 3: Vector Database Indexing (Pinecone)
-
-[x] Week 4: FastAPI Backend Development
-
-[x] Week 5: Search Logic & Ranking
-
-[x] Week 6: ONNX Optimization & Quantization
-
-[ ] Week 7: Production Engineering (Logging, CI/CD)
-
-[ ] Week 8: Streamlit Frontend
-
-[ ] Week 9: Cloud Deployment
-
-[ ] Week 10: Documentation & Release
-
-🛠️ Tech Stack
-
-ML: PyTorch, CLIP, ONNX Runtime
-
-Data: OpenCV, ffmpeg, Pinecone
-
-Backend: FastAPI, Docker
-
-Frontend: Streamlit
-
-👤 Author
-
-Roland Wen Machine Learning & Data Science MS, UCSD
+---
+*Developed by Roland Wen as part of the UCSD MSMLDS Program.*
