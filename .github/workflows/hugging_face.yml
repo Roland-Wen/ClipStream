@@ -17,4 +17,4 @@ jobs:
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push https://w80707:$HF_TOKEN@huggingface.co/spaces/w80707/ClipStream deoploy:main --force
+        run: git push https://w80707:$HF_TOKEN@huggingface.co/spaces/w80707/ClipStream deploy:main --force
