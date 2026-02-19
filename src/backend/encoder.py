@@ -4,6 +4,7 @@ import os
 import numpy as np
 import onnxruntime as ort
 from tokenizers import Tokenizer
+from huggingface_hub import hf_hub_download
 from typing import List
 
 
@@ -23,20 +24,19 @@ class CLIPTextEncoder:
 
         # 2. Load the Optimized ONNX Model
         # We target the hybrid quantized model
-        model_path = os.path.join("onnx", "text_model_optimized.onnx")
-        
-        if not os.path.exists(model_path):
-            # Fallback to standard ONNX if optimized version is missing
-            logger.warning(f"⚠️ Optimized model not found at {model_path}. Checking for standard ONNX...")
-            model_path = os.path.join("onnx", "text_model.onnx")
-            
-        if not os.path.exists(model_path):
+        # model_path = os.path.join("onnx", "text_model_optimized.onnx")
+        model_repo = "w80707/clipstream-onnx"
+        model_path = "text_model_optimized.onnx"
+
+        try:
+            model = hf_hub_download(repo_id=model_repo, filename=model_path)
+        except Exception as e:
             raise FileNotFoundError(f"CRITICAL: No ONNX model found at {model_path}")
 
         logger.info(f"🚀 Loading Inference Engine: {model_path}")
         
         # CPU Execution Provider is default for this project
-        self.session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        self.session = ort.InferenceSession(model, providers=["CPUExecutionProvider"])
         
         logger.info("✅ Encoder initialized successfully (No Torch/Transformers dependencies).")
 

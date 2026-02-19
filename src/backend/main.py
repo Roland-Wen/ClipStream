@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Project Info
     APP_NAME: str = "ClipStream API"
     DEBUG_MODE: bool = True
-    VERSION: str = "0.5.0"
+    VERSION: str = "0.7.0"
 
     # Infrastructure (Keys will be loaded from .env)
     PINECONE_API_KEY: str = ""
@@ -41,7 +41,8 @@ class Settings(BaseSettings):
     # Explicitly list the exact protocol, domain, and port of frontend
     CORS_ORIGINS: List[str] = [
         "http://localhost:8501",  # Streamlit default
-        "http://127.0.0.1:8501"   # Alternative local address
+        "http://127.0.0.1:8501",  # Alternative local address
+        "https://w80707-clipstream.hf.space",
     ]
     
     # Logging
@@ -158,7 +159,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().CORS_ORIGINS,  # Allows specific origins (or * for all)
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],  # Allows all headers
 )
 
