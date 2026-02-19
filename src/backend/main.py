@@ -41,7 +41,8 @@ class Settings(BaseSettings):
     # Explicitly list the exact protocol, domain, and port of frontend
     CORS_ORIGINS: List[str] = [
         "http://localhost:8501",  # Streamlit default
-        "http://127.0.0.1:8501"   # Alternative local address
+        "http://127.0.0.1:8501",  # Alternative local address
+        "https://w80707-clipstream.hf.space"
     ]
     
     # Logging
