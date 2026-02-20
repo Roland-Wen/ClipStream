@@ -29,7 +29,8 @@ class CLIPTextEncoder:
         model_path = "text_model_optimized.onnx"
 
         try:
-            model = hf_hub_download(repo_id=model_repo, filename=model_path)
+            model = hf_hub_download(repo_id=model_repo, filename=model_path,
+                                    revision="36a788c37d3c361645cc55c4cbc8485999e0408e")
         except Exception:
             raise FileNotFoundError(f"CRITICAL: No ONNX model found at {model_path}")
 
