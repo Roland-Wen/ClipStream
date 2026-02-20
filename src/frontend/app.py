@@ -116,7 +116,7 @@ with st.form("search_form"):
         # Pre-fill with URL param if available
         query = st.text_input("Search Query", value=default_query, placeholder="e.g., 'Eren Yeager transformation'")
     with col2:
-        submitted = st.form_submit_button("Search", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("Search", type="primary", width='stretch')
 
 # --- SEARCH LOGIC ---
 # Run if button clicked OR if we have a URL query pending (auto_run)
@@ -217,10 +217,10 @@ if st.session_state.last_results:
                         # Display the Pre-Fetched Image
                         img_obj = loaded_images[idx]
                         if img_obj:
-                            st.image(img_obj, use_container_width=True)
+                            st.image(img_obj, width='stretch')
                         else:
                             # Fallback placeholder
-                            st.image("https://placehold.co/600x400/png?text=No+Thumbnail", use_container_width=True)
+                            st.image("https://placehold.co/600x400/png?text=No+Thumbnail", width='stretch')
                         
                         # Metadata & Buttons
                         badge_text, badge_color = get_confidence_style(result['score'])
@@ -230,6 +230,6 @@ if st.session_state.last_results:
                         timestamp = str(timedelta(seconds=int(result['start_time'])))
                         st.caption(f"📍 Starts at: **{timestamp}**")
                         
-                        if st.button("▶️ Play Video", key=f"btn_{idx}", use_container_width=True):
+                        if st.button("▶️ Play Video", key=f"btn_{idx}", width='stretch'):
                             st.session_state[play_key] = True
                             st.rerun()
