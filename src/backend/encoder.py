@@ -30,7 +30,7 @@ class CLIPTextEncoder:
 
         try:
             model = hf_hub_download(repo_id=model_repo, filename=model_path)
-        except Exception as e:
+        except Exception:
             raise FileNotFoundError(f"CRITICAL: No ONNX model found at {model_path}")
 
         logger.info(f"🚀 Loading Inference Engine: {model_path}")
