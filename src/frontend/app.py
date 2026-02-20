@@ -22,10 +22,35 @@ st.set_page_config(
 # --- CUSTOM CSS (Responsive & Mobile Friendly) ---
 st.markdown("""
 <style>
-    .main-title { font-size: 3rem; color: #FF4B4B; text-align: center; font-weight: 700; }
-    .sub-title { text-align: center; color: #555; margin-bottom: 2rem; }
-    div.stButton > button:first-child { height: 3em; font-weight: bold; }
-    /* Mobile optimization for badges */
+    /* Force vertical scrollbar to always exist (prevents width oscillation in HF iframe) */
+    html {
+        overflow-y: scroll;
+    }
+
+    /* Prevent any horizontal overflow feedback loop */
+    body {
+        overflow-x: hidden;
+    }
+
+    .main-title { 
+        font-size: 3rem; 
+        color: #FF4B4B; 
+        text-align: center; 
+        font-weight: 700; 
+    }
+
+    .sub-title { 
+        text-align: center; 
+        color: #555; 
+        margin-bottom: 2rem; 
+    }
+
+    div.stButton > button:first-child { 
+        height: 3em; 
+        font-weight: bold; 
+    }
+
+    /* Mobile optimization */
     @media (max-width: 640px) {
         .main-title { font-size: 2rem; }
     }
@@ -47,9 +72,7 @@ def fetch_image_from_url(url: str):
         # Use a timeout so the app doesn't hang on bad links
         response = requests.get(url, timeout=5)
         response.raise_for_status()
-        img = Image.open(BytesIO(response.content))
-        # This prevents containers from jumping around due to different image heights
-        return img.resize((640, 360))
+        return Image.open(BytesIO(response.content))
     except Exception:
         return None
 
@@ -212,11 +235,12 @@ if st.session_state.last_results:
                             st.rerun()
                     else:
                         # Display the Pre-Fetched Image
-                        placeholder = st.empty()
-                        placeholder.image("https://placehold.co/640x360/png?text=No+Thumbnail", width='stretch')
                         img_obj = loaded_images[idx]
                         if img_obj:
-                            placeholder.image(img_obj, use_container_width=True)
+                            st.image(img_obj, width='stretch')
+                        else:
+                            # Fallback placeholder
+                            st.image("https://placehold.co/600x400/png?text=No+Thumbnail", width='stretch')
                         
                         # Metadata & Buttons
                         badge_text, badge_color = get_confidence_style(result['score'])
