@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:8501",  # Streamlit default
         "http://127.0.0.1:8501",  # Alternative local address
-        "https://w80707-clipstream.hf.space",
+        "https://w80707-clipstream.hf.space"
     ]
     
     # Logging
