@@ -10,7 +10,7 @@ from datetime import timedelta
 PAGE_TITLE = "ClipStream"
 PAGE_ICON = "🎬"
 
-client = ClipStreamClient(base_url="http://localhost:8000")
+client = ClipStreamClient(base_url="https://clipstream-api.onrender.com")
 
 st.set_page_config(
     page_title=PAGE_TITLE, 
