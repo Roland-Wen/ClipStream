@@ -22,9 +22,6 @@ st.set_page_config(
 # --- CUSTOM CSS (Responsive & Mobile Friendly) ---
 st.markdown("""
 <style>
-    /* Force vertical scrollbar to prevent width-shifting loop */
-    section[data-testid="stAppViewContainer"] { overflow-y: scroll !important; }
-            
     .main-title { font-size: 3rem; color: #FF4B4B; text-align: center; font-weight: 700; }
     .sub-title { text-align: center; color: #555; margin-bottom: 2rem; }
     div.stButton > button:first-child { height: 3em; font-weight: bold; }
@@ -215,12 +212,11 @@ if st.session_state.last_results:
                             st.rerun()
                     else:
                         # Display the Pre-Fetched Image
+                        placeholder = st.empty()
+                        placeholder.image("https://placehold.co/640x360/png?text=No+Thumbnail", width='stretch')
                         img_obj = loaded_images[idx]
                         if img_obj:
-                            st.image(img_obj, width='stretch')
-                        else:
-                            # Fallback placeholder
-                            st.image("https://placehold.co/600x400/png?text=No+Thumbnail", width='stretch')
+                            placeholder.image(img_obj, use_container_width=True)
                         
                         # Metadata & Buttons
                         badge_text, badge_color = get_confidence_style(result['score'])
