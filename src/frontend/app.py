@@ -23,7 +23,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     /* Force vertical scrollbar to prevent width-shifting loop */
-    section[data-testid="stAppViewContainer"] { overflow-y: scroll; }
+    section[data-testid="stAppViewContainer"] { overflow-y: scroll !important; }
             
     .main-title { font-size: 3rem; color: #FF4B4B; text-align: center; font-weight: 700; }
     .sub-title { text-align: center; color: #555; margin-bottom: 2rem; }
