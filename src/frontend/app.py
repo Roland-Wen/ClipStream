@@ -22,6 +22,9 @@ st.set_page_config(
 # --- CUSTOM CSS (Responsive & Mobile Friendly) ---
 st.markdown("""
 <style>
+    /* Force vertical scrollbar to prevent width-shifting loop */
+    section[data-testid="stAppViewContainer"] { overflow-y: scroll; }
+            
     .main-title { font-size: 3rem; color: #FF4B4B; text-align: center; font-weight: 700; }
     .sub-title { text-align: center; color: #555; margin-bottom: 2rem; }
     div.stButton > button:first-child { height: 3em; font-weight: bold; }
@@ -47,7 +50,9 @@ def fetch_image_from_url(url: str):
         # Use a timeout so the app doesn't hang on bad links
         response = requests.get(url, timeout=5)
         response.raise_for_status()
-        return Image.open(BytesIO(response.content))
+        img = Image.open(BytesIO(response.content))
+        # This prevents containers from jumping around due to different image heights
+        return img.resize((640, 360))
     except Exception:
         return None
 
