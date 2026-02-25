@@ -134,7 +134,7 @@ with st.form("search_form"):
     col1, col2 = st.columns([5, 1])
     with col1:
         # Pre-fill with URL param if available
-        query = st.text_input("Search Query", value=default_query, placeholder="e.g., 'Eren Yeager transformation'")
+        query = st.text_input("Search Query", value=default_query, placeholder="e.g., A horse girl running on grass")
     with col2:
         submitted = st.form_submit_button("Search", type="primary", width='stretch')
 
@@ -156,14 +156,33 @@ if submitted or (st.session_state.auto_run and query):
         # Clear param if empty
         if "cat" in st.query_params: del st.query_params["cat"]
 
-    with st.spinner("🧠 Analyzing video embeddings..."):
-        response = client.search(
-            query=query,
-            categories=selected_cats,
-            years=selected_years,
-            sort_by=sort_api_value,
-            top_k=20 
-        )
+    with st.status("🚀 Connecting to backend...", expanded=True) as status:
+        try:
+            # 1. The Wake-Up Ping
+            # Hit the base URL to force Render to wake up. 
+            # We give it a 120-second timeout to handle the cold boot.
+            status.write("😴 Checking server status (waking it up if it's asleep)...")
+            requests.get("https://clipstream-api.onrender.com/", timeout=120)
+            
+            # 2. The Actual Search
+            status.update(label="🧠 Analyzing video embeddings...", state="running")
+            response = client.search(
+                query=query,
+                categories=selected_cats,
+                years=selected_years,
+                sort_by=sort_api_value,
+                top_k=10 
+            )
+            
+            # 3. Success (collapses the status box)
+            status.update(label="✅ Search complete!", state="complete", expanded=False)
+            
+        except requests.exceptions.Timeout:
+            status.update(label="❌ Server took too long to wake up.", state="error")
+            response = {"error": True, "message": "Backend is still waking up. Please click search again!"}
+        except Exception as e:
+            status.update(label="❌ Connection failed.", state="error")
+            response = {"error": True, "message": f"Connection error: {str(e)}"}
 
     if response.get("error"):
         # 3. Custom No Results / Error Page
@@ -180,14 +199,14 @@ if submitted or (st.session_state.auto_run and query):
             
             # Quick-click suggestions
             s_col1, s_col2, s_col3 = st.columns(3)
-            if s_col1.button("⚾ Baseball Home Run"):
-                st.query_params["q"] = "Baseball Home Run"
+            if s_col1.button("Two middle school girl chilling in a camping place"):
+                st.query_params["q"] = "Two middle school girl chilling in a camping place"
                 st.rerun()
-            if s_col2.button("⚔️ Anime Fight"):
-                st.query_params["q"] = "Anime Fight"
+            if s_col2.button("An anime fight scene with explosions"):
+                st.query_params["q"] = "An anime fight scene with explosions"
                 st.rerun()
-            if s_col3.button("🌆 City Skyline"):
-                st.query_params["q"] = "City Skyline"
+            if s_col3.button("A horse girl running on grass"):
+                st.query_params["q"] = "a horse girl running on grass"
                 st.rerun()
 
     else:

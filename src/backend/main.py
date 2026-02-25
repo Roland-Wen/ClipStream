@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     """
     # Project Info
     APP_NAME: str = "ClipStream API"
-    DEBUG_MODE: bool = True
+    DEBUG_MODE: bool = False
     VERSION: str = "0.7.0"
 
     # Infrastructure (Keys will be loaded from .env)
