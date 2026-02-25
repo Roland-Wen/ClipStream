@@ -35,7 +35,7 @@ COPY --from=builder /opt/venv /opt/venv
 # 3. Copy assets and ensure correct ownership
 COPY onnx/text_model_optimized.onnx ./onnx/
 COPY tokenizer.json .
-COPY src/ ./src/ 
+COPY *.py .
 
 # Change ownership of the app directory to the non-root user
 RUN chown -R clipuser:clipgroup /app
