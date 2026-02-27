@@ -7,6 +7,7 @@ python-dotenv>=1.0.0
 httpx
 psutil
 loguru
+logtail-python
 slowapi>=0.1.8
 
 # --- INFERENCE ENGINE ---

@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import List, Dict, Any, Optional
 from loguru import logger
+from logtail import LogtailHandler
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -34,6 +35,7 @@ class Settings(BaseSettings):
     # Infrastructure (Keys will be loaded from .env)
     PINECONE_API_KEY: str = ""
     PINECONE_INDEX_NAME: str = "clip-stream"
+    LOGTAIL_TOKEN = ""
 
     # Default Search Settings
     MIN_SCORE_THRESHOLD: float = 0.26 # Anything below this is likely noise
@@ -97,7 +99,7 @@ async def lifespan(app: FastAPI):
 
 # --- LOGGING SETUP ---
 def setup_logging(settings: Settings):
-    """Configures loguru with a safe request_id default."""
+    """Configures loguru with a safe request_id default and cloud syncing."""
     logger.remove()
 
     # This 'patch' ensures 'request_id' always exists in 'extra'
@@ -108,6 +110,7 @@ def setup_logging(settings: Settings):
 
     logger.configure(patcher=patch_record)
 
+    # 1. Standard Output Sink (Local/Render Console)
     if settings.JSON_LOGS:
         logger.add(sys.stdout, serialize=True, level=settings.LOG_LEVEL)
     else:
@@ -117,6 +120,19 @@ def setup_logging(settings: Settings):
             format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[request_id]}</cyan> - <level>{message}</level> <dim>{extra}</dim>",
             level=settings.LOG_LEVEL
         )
+
+    # 2. Cloud Viewer Sink (Better Stack / Logtail)
+    if settings.LOGTAIL_TOKEN:
+        # We pass the token from your Settings class
+        cloud_handler = LogtailHandler(source_token=settings.LOGTAIL_TOKEN)
+        logger.add(
+            cloud_handler,
+            format="{message}", # Logtail handles its own timestamping and extra metadata
+            level=settings.LOG_LEVEL,
+            backtrace=settings.DEBUG_MODE,
+            diagnose=settings.DEBUG_MODE
+        )
+        logger.info("☁️ Centralized cloud logging (Better Stack) enabled.")
 
 # --- MIDDLEWARE ---
 async def request_id_middleware(request: Request, call_next):
