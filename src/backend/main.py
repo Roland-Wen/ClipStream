@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # Infrastructure (Keys will be loaded from .env)
     PINECONE_API_KEY: str = ""
     PINECONE_INDEX_NAME: str = "clip-stream"
-    LOGTAIL_TOKEN = ""
+    LOGTAIL_TOKEN: str = ""
 
     # Default Search Settings
     MIN_SCORE_THRESHOLD: float = 0.26 # Anything below this is likely noise
